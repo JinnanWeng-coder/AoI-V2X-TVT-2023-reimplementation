@@ -88,3 +88,20 @@ if exist('V2I.mat', 'file') && exist('V2V.mat', 'file')
 end
 
 fprintf('所有可视化图表已保存至当前目录下！\n');
+%% 6. 全局奖励曲线 (Global Reward)
+if exist('reward_global.mat', 'file')
+    load('reward_global.mat');
+    if size(reward_global, 1) > 1
+        avg_global = mean(reward_global, 1);
+    else
+        avg_global = reward_global;
+    end
+    
+    figure('Name', 'Global Reward');
+    plot(movmean(avg_global, 20), 'Color', [0.4660 0.6740 0.1880]);
+    grid on;
+    title('Global System Performance (Interference Mitigation)');
+    xlabel('Episode');
+    ylabel('Global Reward');
+    saveas(gcf, 'Algo2_Result_6_Global_Reward.png');
+end
