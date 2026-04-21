@@ -154,6 +154,7 @@ if IS_TRAIN:
         print("-------------------------------------------------------------------------------------------------------")
         record_reward_t1 = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
         record_reward_t2 = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
+        record_reward_global = np.zeros([n_step_per_episode], dtype=np.float16)
         record_AoI = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
 
         env.V2V_demand = env.V2V_demand_size * np.ones(n_platoon, dtype=np.float16)
@@ -194,6 +195,7 @@ if IS_TRAIN:
                 record_reward_t1[i, i_step] = task_1_r[i]
                 record_reward_t2[i, i_step] = task_2_r[i]
                 record_AoI[i, i_step] = env.AoI[i]
+            record_reward_global[i_step] = global_reward
 
             env.renew_channels_fastfading()
             env.Compute_Interference(action_temp)
@@ -234,7 +236,7 @@ if IS_TRAIN:
 
         record_reward_t1_[:, i_episode] = np.mean(record_reward_t1, axis=1)
         record_reward_t2_[:, i_episode] = np.mean(record_reward_t2, axis=1)
-        record_reward_global_[i_episode] = global_reward
+        record_reward_global_[i_episode] = np.mean(record_reward_global)
         AoI_total[:, i_episode] = np.mean(record_AoI, axis=1)
 
         if i_episode % 50 == 0:

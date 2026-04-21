@@ -153,6 +153,7 @@ if IS_TRAIN:
         done = False
         print("-------------------------------------------------------------------------------------------------------")
         record_reward = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
+        # Save the episode-level global reward as the mean over all steps.
         record_reward_global = np.zeros([n_step_per_episode], dtype=np.float16)
         record_AoI = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
 
