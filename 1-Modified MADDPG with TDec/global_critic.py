@@ -111,21 +111,44 @@ class Global_Critic():
         self.learn_step_counter += 1
 
         if self.learn_step_counter % self.update_actor_iter != 0:
+            # Still run local critic updates even when global actor update is skipped
+            # (TD3-style delayed actor update: only the actor step is skipped, critics update every step)
+            for i in range(self.number_agents):
+                self.agents_networks[i].local_learn(
+                    states[:, i * self.number_states:(i + 1) * self.number_states],
+                    actions[:, i * self.number_actions:(i + 1) * self.number_actions],
+                    rewards_t1[:, i], rewards_t2[:, i],
+                    states_[:, i * self.number_states:(i + 1) * self.number_states],
+                    done, update_actor=False)
             return
 
-        actions_ = T.zeros([self.batch_size, self.number_actions * self.number_agents])
+        # ------ Option A fix: global critic gradients now flow into each agent's actor ------
+        # Build joint policy actions via torch.cat so gradients stay attached to each actor
+        per_agent_pi = []
         for i in range(self.number_agents):
-            actions_[:, i * self.number_actions:(i + 1) * self.number_actions] = \
-                self.agents_networks[i].actor.forward(
-                    states[:, i * self.number_states:(i + 1) * self.number_states])
+            a_i = self.agents_networks[i].actor.forward(
+                states[:, i * self.number_states:(i + 1) * self.number_states])
+            per_agent_pi.append(a_i)
+        joint_actions_pi = T.cat(per_agent_pi, dim=1).to(self.global_critic1.device)
 
-        actor_global_loss = -self.global_critic1.forward(states, actions_.to(self.global_critic1.device))
-
+        # Zero every agent's actor grad before filling with the global-critic contribution
         for i in range(self.number_agents):
-            actor_global_loss_ = actor_global_loss.clone().detach()
-            self.agents_networks[i].local_learn(actor_global_loss_, states[:, i * self.number_states:(i + 1) * self.number_states],
-                                                actions[:, i * self.number_actions:(i + 1) * self.number_actions], rewards_t1[:, i],
-                                                rewards_t2[:, i], states_[:, i * self.number_states:(i + 1) * self.number_states], done)
+            self.agents_networks[i].actor.optimizer.zero_grad()
+            self.agents_networks[i].actor.train()
+
+        actor_global_loss = -self.global_critic1.forward(states, joint_actions_pi).mean()
+        # Weight 2.0 preserves the "+ 2 * global" balance used in the original local_learn
+        (actor_global_loss * 2.0).backward()
+
+        # Each agent's actor.grad now holds the global-critic gradient.
+        # local_learn will add local (task1+task2) gradients on top and call optimizer.step().
+        for i in range(self.number_agents):
+            self.agents_networks[i].local_learn(
+                states[:, i * self.number_states:(i + 1) * self.number_states],
+                actions[:, i * self.number_actions:(i + 1) * self.number_actions],
+                rewards_t1[:, i], rewards_t2[:, i],
+                states_[:, i * self.number_states:(i + 1) * self.number_states],
+                done, update_actor=True)
 
     def update_global_network_parameters(self, tau=None):
 
