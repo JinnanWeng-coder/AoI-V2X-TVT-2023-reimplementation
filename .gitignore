@@ -4,5 +4,5 @@ __pycache__/
 
 data/
 
-**/model/marl_model/*.mat
-**/model/marl_model/*.png
+**/model/**/*.mat
+**/model/**/*.png
